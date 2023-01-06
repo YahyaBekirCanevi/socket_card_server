@@ -5,10 +5,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 const app = express()
 
-app.get("/", (req: any, res: any) => {
-    res.send({ uptime: process.uptime() })
-})
-
 const server = http.createServer(app)
 const io = new socketio.Server(server)
 
@@ -82,6 +78,11 @@ const rooms: { [key: string]: Room } = {}
 // Set up a map of game states
 const games: { [key: string]: GameState } = {}
 
+
+app.get("/", (req: any, res: any) => {
+    res.send({ uptime: process.uptime(), rooms: rooms, games: games })
+})
+
 server.listen(3000, () => {
     console.log('Socket server listening on port 3000');
 })
@@ -91,13 +92,11 @@ io.on('connection', (client: socketio.Socket) => {
 
     client.on('join_room', (roomId: string, playerName: string) => {
         // Leave any existing rooms
-        //Object.values(client.rooms).forEach((room) => client.leave(room));
-
-        console.log(`Player Join: ${playerName}`)
+        Object.values(client.rooms).forEach((room) => client.leave(room));
 
         if (!roomId || !games[roomId] || games[roomId].players.length > 4) {
-            // Generate a unique room ID
-            const roomId = uuidv4()
+            // Create uinque roomId
+            roomId = uuidv4()
 
             // Create a new entry in the rooms map
             rooms[roomId] = {
@@ -114,22 +113,31 @@ io.on('connection', (client: socketio.Socket) => {
                 winner: '',
             }
         }
+        console.log(`Player Join ${playerName}`)
         // Join the new room
         client.join(roomId);
-
-        rooms[roomId].users.push(client.id);
-
-        io.to(roomId).emit('room_update', { 'id': roomId, 'name': rooms[roomId]['name'] });
 
         // Add the player to the game
         games[roomId].players.push(new Player(client.id, playerName));
 
         // Send the updated game state to all sockets
         io.to(roomId).emit('game_state', games[roomId]);
+
+        rooms[roomId].users.push(client.id);
+
+        io.to(roomId).emit('room_update', {
+            'id': roomId,
+            'name': rooms[roomId].name
+        });
     });
 
-    client.on('disconnect', (roomId: string) => {
+    client.on('disconnect', () => {
         console.log(`Socket disconnected: ${client.id}`);
+
+        let index = Object.values(rooms)
+            .findIndex(e => e.users.find(el => el === client.id)!)
+        //console.log(`index : ${index}`)
+        const roomId: string = Object.keys(rooms).at(index)!
 
         // Remove the player from the game
         if (games[roomId] && rooms[roomId]) {
@@ -140,10 +148,10 @@ io.on('connection', (client: socketio.Socket) => {
                 Object.keys(games).filter(e => e !== roomId);
                 Object.keys(rooms).filter(e => e !== roomId);
             }
-
             // Send the updated game state to all sockets
             io.to(roomId).emit('game_state', games[roomId]);
         }
+        client.leave(roomId)
     });
 
     client.on('start_game', (roomId: string) => {
@@ -181,7 +189,7 @@ io.on('connection', (client: socketio.Socket) => {
         }
     });
 
-    client.on('play_card', (card: Card, roomId: string) => {
+    client.on('play_card', (roomId: string, card: Card) => {
         if (games[roomId]) {
             // Get the current player
             const player = games[roomId].players.find((p) => p.id === client.id);
