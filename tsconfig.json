@@ -3,14 +3,15 @@
         "target": "es6",
         "module": "commonjs",
         "outDir": "build",
-        "rootDir": "src",
+        "rootDir": "./",
         "strict": true,
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "strictNullChecks": true
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "test/**/*"
     ],
     "exclude": [
         "node_modules"
