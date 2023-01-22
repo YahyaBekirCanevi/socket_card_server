@@ -30,32 +30,27 @@ const uuid_1 = require("uuid");
 const game_state_1 = __importStar(require("../model/game_state"));
 const player_1 = __importDefault(require("../model/player"));
 const room_1 = __importStar(require("../model/room"));
-//// EVENTS
-const JOIN_ROOM = 'join_room';
-const DISCONNECT = 'disconnect';
-const START_GAME = 'start_game';
-const END_GAME = 'end_game';
-const PLAY_CARD = 'play_card';
-//// EMITS
-const GAME_STATE = 'game_state';
-const ROOM = 'room';
+const constants_1 = __importDefault(require("../utils/constants"));
 class SocketController {
     constructor(client, io) {
         this.client = client;
         this.io = io;
     }
     init() {
-        this.client.on(JOIN_ROOM, this.joinRoom);
-        this.client.on(DISCONNECT, this.disconnect);
-        this.client.on(START_GAME, this.startGame);
-        this.client.on(END_GAME, this.endGame);
-        this.client.on(PLAY_CARD, this.playCard);
+        this.client.on(constants_1.default.JOIN_ROOM, (roomId, playerName) => this.joinRoom(roomId, playerName));
+        this.client.on(constants_1.default.DISCONNECT, () => this.disconnect());
+        this.client.on(constants_1.default.START_GAME, (roomId) => this.startGame(roomId));
+        this.client.on(constants_1.default.END_GAME, (roomId) => this.endGame(roomId));
+        this.client.on(constants_1.default.PLAY_CARD, (roomId, card) => this.playCard(roomId, card));
     }
     joinRoom(roomId, playerName) {
-        // Leave any existing rooms
-        Object.values(this.client.rooms).forEach((room) => this.client.leave(room));
-        if (!roomId || !game_state_1.games[roomId] || game_state_1.games[roomId].isFull()) {
-            roomId = this.createRoom(playerName);
+        var _a;
+        if (((_a = this.client.rooms) === null || _a === void 0 ? void 0 : _a.values.length) > 0) {
+            // Leave any existing rooms
+            Object.values(this.client.rooms).forEach((room) => this.client.leave(room));
+        }
+        if (!roomId || roomId === "" || !game_state_1.games[roomId] || game_state_1.games[roomId].isFull()) {
+            roomId = this.createGameRoom(playerName);
         }
         // Join the new room
         this.client.join(roomId);
@@ -86,8 +81,8 @@ class SocketController {
             else if (game_state_1.games[roomId].players.length < 2) {
                 this.endGame(roomId);
             }
+            this.client.leave(roomId);
         }
-        this.client.leave(roomId);
     }
     startGame(roomId) {
         // Only allow the game to be started if there are at least 2 players
@@ -123,7 +118,7 @@ class SocketController {
             }
         }
     }
-    createRoom(playerName) {
+    createGameRoom(playerName) {
         // Create uinque roomId
         const roomId = (0, uuid_1.v4)();
         // Create a new entry in the rooms map
@@ -138,7 +133,7 @@ class SocketController {
     updateGame(roomId) {
         const sockets = this.playerSockets(roomId);
         // Send the updated game state to all sockets
-        this.io.to(sockets).emit(GAME_STATE, game_state_1.games[roomId]);
+        this.io.to(sockets).emit(constants_1.default.GAME_STATE, game_state_1.games[roomId]);
     }
     updateRoom(roomId) {
         const sockets = this.playerSockets(roomId);
@@ -147,7 +142,7 @@ class SocketController {
             'name': room_1.rooms[roomId].name
         };
         // Send new room to all sockets
-        this.io.to(sockets).emit(ROOM, room);
+        this.io.to(sockets).emit(constants_1.default.ROOM, room);
     }
 }
 exports.default = SocketController;

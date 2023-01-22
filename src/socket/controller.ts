@@ -4,17 +4,7 @@ import Card from "../model/card"
 import GameState, { games } from '../model/game_state'
 import Player from "../model/player"
 import Room, { rooms } from "../model/room"
-
-//// EVENTS
-const JOIN_ROOM = 'join_room'
-const DISCONNECT = 'disconnect'
-const START_GAME = 'start_game'
-const END_GAME = 'end_game'
-const PLAY_CARD = 'play_card'
-
-//// EMITS
-const GAME_STATE = 'game_state'
-const ROOM = 'room'
+import Constants from "../utils/constants"
 
 export default class SocketController {
     client: Socket
@@ -29,19 +19,21 @@ export default class SocketController {
     }
 
     init() {
-        this.client.on(JOIN_ROOM, this.joinRoom)
-        this.client.on(DISCONNECT, this.disconnect)
-        this.client.on(START_GAME, this.startGame)
-        this.client.on(END_GAME, this.endGame)
-        this.client.on(PLAY_CARD, this.playCard)
+        this.client.on(Constants.JOIN_ROOM, (roomId: string, playerName: string) => this.joinRoom(roomId, playerName))
+        this.client.on(Constants.DISCONNECT, () => this.disconnect())
+        this.client.on(Constants.START_GAME, (roomId: string) => this.startGame(roomId))
+        this.client.on(Constants.END_GAME, (roomId: string) => this.endGame(roomId))
+        this.client.on(Constants.PLAY_CARD, (roomId: string, card: Card) => this.playCard(roomId, card))
     }
 
-    joinRoom(roomId: string, playerName: string) {
-        // Leave any existing rooms
-        Object.values(this.client.rooms).forEach((room) => this.client.leave(room));
 
-        if (!roomId || !games[roomId] || games[roomId].isFull()) {
-            roomId = this.createRoom(playerName)
+    joinRoom(roomId: string, playerName: string) {
+        if (this.client.rooms?.values.length > 0) {
+            // Leave any existing rooms
+            Object.values(this.client.rooms).forEach((room) => this.client.leave(room));
+        }
+        if (!roomId || roomId === "" || !games[roomId] || games[roomId].isFull()) {
+            roomId = this.createGameRoom(playerName)
         }
         // Join the new room
         this.client.join(roomId);
@@ -127,8 +119,7 @@ export default class SocketController {
         }
     }
 
-
-    createRoom(playerName: string) {
+    createGameRoom(playerName: string): string {
         // Create uinque roomId
         const roomId = uuidv4()
 
@@ -142,13 +133,13 @@ export default class SocketController {
     }
 
     playerSockets(roomId: string) {
-        return games[roomId].players.map(e => e.id)
+        return !games[roomId] ? [] : games[roomId].players.map(e => e.id)
     }
 
     updateGame(roomId: string) {
         const sockets = this.playerSockets(roomId)
         // Send the updated game state to all sockets
-        this.io.to(sockets).emit(GAME_STATE, games[roomId]);
+        this.io.to(sockets).emit(Constants.GAME_STATE, games[roomId]);
     }
 
     updateRoom(roomId: string) {
@@ -159,6 +150,6 @@ export default class SocketController {
             'name': rooms[roomId].name
         }
         // Send new room to all sockets
-        this.io.to(sockets).emit(ROOM, room);
+        this.io.to(sockets).emit(Constants.ROOM, room);
     }
 }
