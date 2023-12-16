@@ -16,6 +16,7 @@ export default class SocketController {
     ) {
         this.client = client
         this.io = io
+        this.init()
     }
 
     init() {
@@ -124,10 +125,7 @@ export default class SocketController {
         const roomId = uuidv4()
 
         // Create a new entry in the rooms map
-        rooms[roomId] = new Room(playerName)
-
-        // Create a new entry in the games map
-        games[roomId] = new GameState()
+        rooms[roomId] = new Room(roomId, playerName)
 
         return roomId
     }

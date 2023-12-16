@@ -10,4 +10,3 @@ export default class Constants {
     static GAME_STATE: string = 'game_state'
     static ROOM: string = 'room'
 }
-
